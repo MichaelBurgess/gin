@@ -731,25 +731,42 @@ func (c *Context) ShouldBindBodyWith(obj interface{}, bb binding.BindingBody) (e
 // If the headers are nots syntactically valid OR the remote IP does not correspong to a trusted proxy,
 // the remote IP (coming form Request.RemoteAddr) is returned.
 func (c *Context) ClientIP() string {
+	fmt.Println("Getting ClientIP")
+
 	if c.engine.AppEngine {
 		if addr := c.requestHeader("X-Appengine-Remote-Addr"); addr != "" {
+			fmt.Println("ClientIP -> Got address from X-Appengine-Remote-Addr", addr)
 			return addr
 		}
 	}
 
+	fmt.Println("ClientIP -> getting RemoteIP")
 	remoteIP, trusted := c.RemoteIP()
+	fmt.Println("ClientIP -> RemoteIP result", remoteIP, trusted)
 	if remoteIP == nil {
+		fmt.Println("ClientIP -> no RemoteIP")
 		return ""
 	}
 
+	fmt.Println("ClientIP -> trusted", trusted)
+	fmt.Println("ClientIP -> c.engine.ForwardedByClientIP", c.engine.ForwardedByClientIP)
+	fmt.Println("ClientIP -> c.engine.RemoteIPHeaders", c.engine.RemoteIPHeaders)
+
 	if trusted && c.engine.ForwardedByClientIP && c.engine.RemoteIPHeaders != nil {
+		fmt.Println("ClientIP -> checking RemoteIPHeaders")
 		for _, headerName := range c.engine.RemoteIPHeaders {
+			fmt.Println("ClientIP -> checking header", headerName, c.requestHeader(headerName))
 			ip, valid := validateHeader(c.requestHeader(headerName))
+			fmt.Println("ClientIP -> header check result", ip, valid)
 			if valid {
+				fmt.Println("ClientIP -> valid header check. Returning", ip)
 				return ip
 			}
 		}
 	}
+
+	fmt.Println("ClientIP -> RemoteIP not trusted, or not ForwardedByClientIP or no RemoteIPHeaders. Returning", remoteIP)
+
 	return remoteIP.String()
 }
 
@@ -758,35 +775,56 @@ func (c *Context) ClientIP() string {
 // In order to perform this validation, it will see if the IP is contained within at least one of the CIDR blocks
 // defined in Engine.TrustedProxies
 func (c *Context) RemoteIP() (net.IP, bool) {
+	fmt.Println("Getting RemoteIP")
+	fmt.Println("RemoteIP -> c.Request.RemoteAddr", c.Request.RemoteAddr)
 	ip, _, err := net.SplitHostPort(strings.TrimSpace(c.Request.RemoteAddr))
+	fmt.Println("RemoteIP -> ip", ip)
 	if err != nil {
+		fmt.Println("Error getting RemoteIP -> ip", err.Error())
 		return nil, false
 	}
 	remoteIP := net.ParseIP(ip)
 	if remoteIP == nil {
+		fmt.Println("Unable to parse RemoteIP -> ip", ip)
 		return nil, false
 	}
 
+	fmt.Println("RemoteIP -> trustedCIDRs", c.engine.trustedCIDRs)
+	fmt.Println("RemoteIP -> TrustedProxies", c.engine.TrustedProxies)
+
 	if c.engine.trustedCIDRs != nil {
+		fmt.Println("RemoteIP -> trustedCIDRs not nil")
 		for _, cidr := range c.engine.trustedCIDRs {
+			fmt.Println("RemoteIP -> checking CIDR", cidr.IP, cidr.Mask)
 			if cidr.Contains(remoteIP) {
+				fmt.Println("RemoteIP -> CIDR contains IP", cidr.IP, cidr.Mask, remoteIP)
 				return remoteIP, true
 			}
+			fmt.Println("RemoteIP -> CIDR does not contain IP", cidr.IP, cidr.Mask, remoteIP)
 		}
 	}
+
+	fmt.Println("RemoteIP -> no trusted CIDRs or no CIDR match - untrusted", remoteIP)
 
 	return remoteIP, false
 }
 
 func validateHeader(header string) (clientIP string, valid bool) {
+	fmt.Println("validateHeader -> header", header)
 	if header == "" {
+		fmt.Println("validateHeader -> no header. Returning", "", false)
 		return "", false
 	}
 	items := strings.Split(header, ",")
+	fmt.Println("validateHeader -> split items", items)
 	for i, ipStr := range items {
+		fmt.Println("validateHeader -> item", i, ipStr)
 		ipStr = strings.TrimSpace(ipStr)
+		fmt.Println("validateHeader -> trimmed ipStr", ipStr)
 		ip := net.ParseIP(ipStr)
+		fmt.Println("validateHeader -> parsed ip", ip)
 		if ip == nil {
+			fmt.Println("validateHeader -> no parsed ip. Returning", "", false)
 			return "", false
 		}
 
@@ -794,10 +832,12 @@ func validateHeader(header string) (clientIP string, valid bool) {
 		// we should not early return since we need to validate that
 		// the rest of the header is syntactically valid
 		if i == 0 {
+			fmt.Println("validateHeader -> First item. Setting clientIP and valid", ipStr, true)
 			clientIP = ipStr
 			valid = true
 		}
 	}
+	fmt.Println("validateHeader -> Returning", clientIP, valid)
 	return
 }
 
