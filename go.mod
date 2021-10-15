@@ -1,6 +1,10 @@
-module github.com/gin-gonic/gin
+module github.com/MichaelBurgess/gin
 
 go 1.13
+
+require github.com/gin-gonic/gin v1.7.4
+
+replace github.com/gin-gonic/gin => ./
 
 require (
 	github.com/gin-contrib/sse v0.1.0
