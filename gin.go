@@ -326,6 +326,7 @@ func iterate(path, method string, routes RoutesInfo, root *node) RoutesInfo {
 func (engine *Engine) Run(addr ...string) (err error) {
 	defer func() { debugPrintError(err) }()
 
+	fmt.Println("Run -> Preparing trusted CIDRs")
 	trustedCIDRs, err := engine.prepareTrustedCIDRs()
 	if err != nil {
 		return err
@@ -338,31 +339,46 @@ func (engine *Engine) Run(addr ...string) (err error) {
 }
 
 func (engine *Engine) prepareTrustedCIDRs() ([]*net.IPNet, error) {
+	fmt.Println("prepareTrustedCIDRs")
 	if engine.TrustedProxies == nil {
+		fmt.Println("prepareTrustedCIDRs -> trusted proxies is nil")
 		return nil, nil
 	}
 
+	fmt.Println("prepareTrustedCIDRs -> calculating from trusted proxies", engine.TrustedProxies)
 	cidr := make([]*net.IPNet, 0, len(engine.TrustedProxies))
 	for _, trustedProxy := range engine.TrustedProxies {
+		fmt.Println("prepareTrustedCIDRs -> getting CIDR from trusted proxy", trustedProxy)
 		if !strings.Contains(trustedProxy, "/") {
+			fmt.Println("prepareTrustedCIDRs -> trusted proxy does not contain /")
 			ip := parseIP(trustedProxy)
 			if ip == nil {
+				fmt.Println("prepareTrustedCIDRs -> trusted proxy does not contain /")
 				return cidr, &net.ParseError{Type: "IP address", Text: trustedProxy}
 			}
 
+			fmt.Println("prepareTrustedCIDRs -> calculating fixed portion for trusted proxy", trustedProxy)
+
 			switch len(ip) {
 			case net.IPv4len:
+				fmt.Println("prepareTrustedCIDRs -> trusted proxy is IPv4, adding /32")
 				trustedProxy += "/32"
 			case net.IPv6len:
+				fmt.Println("prepareTrustedCIDRs -> trusted proxy is IPv4, adding /128")
 				trustedProxy += "/128"
 			}
 		}
+		fmt.Println("prepareTrustedCIDRs -> parsing trusted proxy CIDR", trustedProxy)
 		_, cidrNet, err := net.ParseCIDR(trustedProxy)
 		if err != nil {
+			fmt.Println("prepareTrustedCIDRs -> error parsing trusted proxy CIDR", trustedProxy, err.Error())
+			fmt.Println("prepareTrustedCIDRs -> returning CIDRs so far", cidr)
 			return cidr, err
 		}
+		fmt.Println("prepareTrustedCIDRs -> appending CIDR", cidrNet)
 		cidr = append(cidr, cidrNet)
 	}
+	fmt.Println("prepareTrustedCIDRs -> returning CIDRs", cidr)
 	return cidr, nil
 }
 
